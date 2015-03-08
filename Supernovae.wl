@@ -15,10 +15,48 @@
 BeginPackage["Supernovae`"];
 
 
+Unprotect[ListImport];
+
+
+ListImport::usage = StringJoin @ {
+	"ListImport[\!\(\*StyleBox[\"file\", \"TI\"]\)] imports data from a .list file, returning a complete Wolfram Language version of it."
+};
+
+
+(* ::Section:: *)
+(*Implementation*)
+
+
 Begin["Supernovae`Private`"];
 
 
+(* ::Subsection:: *)
+(*ListImport*)
+
+
+SyntaxInformation[ListImport] = {"ArgumentsPattern" -> {_}};
+
+
+ListImport[fileName_] := Module[
+	{contents, meta, description, data, dataAssociation},
+	contents = Select[Length @ # > 0 &] @ Import[fileName, "Table"];
+	meta = Select[StringQ @ #[[1]] && StringMatchQ[#[[1]], "\\@*"] &] @ contents;
+	description = StringTake[#, 2 ;; -2] & /@ Most @ Flatten @ Select[StringQ @ #[[1]] && StringMatchQ[#[[1]], "#*"] &] @ contents;
+	data = contents[[Position[contents, {"#end"}][[1, 1]] + 1 ;; ]];
+	
+	dataAssociation = KeyDrop[#, "Filter"] & /@ GroupBy[(Association @ Thread[description -> #] & /@ data), #[["Filter"]] &];
+
+	Association @ Append[StringTake[#[[1]], 2 ;; ] -> Rest @ # & /@ meta, "LightCurves" -> dataAssociation]
+]
+
+
 End[];
+
+
+Attributes[ListImport] = {ReadProtected};
+
+
+Protect[ListImport];
 
 
 EndPackage[];
