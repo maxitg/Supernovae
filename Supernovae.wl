@@ -15,11 +15,16 @@
 BeginPackage["Supernovae`"];
 
 
-Unprotect[ListImport];
+Unprotect[ListImport, ExponentialDecaySubset];
 
 
 ListImport::usage = StringJoin @ {
 	"ListImport[\!\(\*StyleBox[\"file\", \"TI\"]\)] imports data from a .list file, returning a complete Wolfram Language version of it."
+};
+
+
+ExponentialDecaySubset::usage = StringJoin @ {
+	"ExponentialDecayInterval[\!\(\*StyleBox[\"lightCurve\", \"TI\"]\)] computes a subset of lightCurve during which flux exponentially decays after the global maximum"
 };
 
 
@@ -50,13 +55,43 @@ ListImport[fileName_] := Module[
 ]
 
 
+(* ::Subsection:: *)
+(*ExponentialDecayRange*)
+
+
+SyntaxInformation[ExponentialDecaySubset] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
+
+
+Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30};
+
+
+(* ::Text:: *)
+(*Discussion! Negative fluxes are dropped. How to find a correct range?*)
+(*How to check goodness of fit?*)
+
+
+ExponentialDecaySubset[lightCurve_, OptionsPattern[]] := Module[
+	{lightCurveSortedByTime, maxFluxDate, lightCurveAfterPeak, logFlux, weights},
+	lightCurveSortedByTime = Select[#["Flux"] > 0 &] @ SortBy[lightCurve, #["Date"]&];
+	maxFluxDate = lightCurveSortedByTime[[Position[lightCurveSortedByTime, Max[lightCurveSortedByTime[[All, "Flux"]]]][[-1, 1]], "Date"]];
+	lightCurveAfterPeak = Select[maxFluxDate < #["Date"] < maxFluxDate + OptionValue["MaxDurationAfterPeak"] &] @ lightCurveSortedByTime;
+	logFlux = {#[[1]], Log10 @ #[[2]]} & /@ lightCurveAfterPeak;
+	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
+	If[Head @ # === Missing, {}, lightCurveSortedByTime[[#[[1]] ;; #[[2]]]]] & @
+		SelectFirst[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["AdjustedRSquared"] >= .95 &] @
+		SortBy[#[[1]] - #[[2]] &] @ Select[#[[2]] - #[[1]] > 1 &] @
+		Subsets[Range @ Length @ logFlux, {2}]
+]
+
+
 End[];
 
 
 Attributes[ListImport] = {ReadProtected};
+Attributes[ExponentialDecaySubset] = {ReadProtected};
 
 
-Protect[ListImport];
+Protect[ListImport, ExponentialDecaySubset];
 
 
 EndPackage[];
