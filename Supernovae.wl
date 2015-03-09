@@ -42,7 +42,7 @@ Begin["Supernovae`Private`"];
 SyntaxInformation[ListImport] = {"ArgumentsPattern" -> {_}};
 
 
-ListImport[fileName_] := Module[
+ListImport[fileName_String] /; FileExistsQ[fileName] := Module[
 	{contents, meta, description, data, dataAssociation},
 	contents = Select[Length @ # > 0 &] @ Import[fileName, "Table"];
 	meta = Select[StringQ @ #[[1]] && StringMatchQ[#[[1]], "\\@*"] &] @ contents;
@@ -70,7 +70,7 @@ Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30};
 (*How to check goodness of fit?*)
 
 
-ExponentialDecaySubset[lightCurve_, OptionsPattern[]] := Module[
+ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 	{lightCurveSortedByTime, maxFluxDate, lightCurveAfterPeak, logFlux, weights},
 	lightCurveSortedByTime = Select[#["Flux"] > 0 &] @ SortBy[lightCurve, #["Date"]&];
 	maxFluxDate = lightCurveSortedByTime[[Position[lightCurveSortedByTime, Max[lightCurveSortedByTime[[All, "Flux"]]]][[-1, 1]], "Date"]];
@@ -79,7 +79,8 @@ ExponentialDecaySubset[lightCurve_, OptionsPattern[]] := Module[
 	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
 	If[Head @ # === Missing, {}, lightCurveSortedByTime[[#[[1]] ;; #[[2]]]]] & @
 		SelectFirst[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["AdjustedRSquared"] >= .95 &] @
-		SortBy[#[[1]] - #[[2]] &] @ Select[#[[2]] - #[[1]] > 1 &] @
+		SortBy[#[[1]] - #[[2]] &] @
+		Select[#[[2]] - #[[1]] > 1 &] @
 		Subsets[Range @ Length @ logFlux, {2}]
 ]
 
