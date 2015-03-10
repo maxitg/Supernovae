@@ -104,7 +104,11 @@ SyntaxInformation[MaxFluxDate] = {"ArgumentsPattern" -> {_}};
 MaxFluxDate[lightCurve_List] := Module[
 	{lightCurveSortedByTime, maxFluxDate, lightCurveAfterPeak, logFlux, weights},
 	lightCurveSortedByTime = $LightCurveSortedByTime @ lightCurve;
-	lightCurveSortedByTime[[Position[lightCurveSortedByTime, Max[lightCurveSortedByTime[[All, "Flux"]]]][[-1, 1]], "Date"]]
+	If[
+		Length @ lightCurveSortedByTime == 0,
+		Missing["No positive flux points."],
+		lightCurveSortedByTime[[Position[lightCurveSortedByTime, Max[lightCurveSortedByTime[[All, "Flux"]]]][[-1, 1]], "Date"]]
+	]
 ]
 
 
@@ -115,7 +119,10 @@ MaxFluxDate[lightCurve_List] := Module[
 SyntaxInformation[ExponentialDecaySubset] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "FitSelectionMethod" -> "NormalizedChiSquared"};
+Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "FitSelectionMethod" -> "AdjustedRSquared"};
+
+
+ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available methods are: AdjustedRSquared, ReducedChiSquared.";
 
 
 ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
@@ -125,11 +132,20 @@ ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 	logFlux = {#[[1]], Log10 @ #[[2]]} & /@ lightCurveAfterPeak;
 	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
 	If[Head @ # === Missing, {}, lightCurveAfterPeak[[#[[1]] ;; #[[2]]]]] & @
-		If[OptionValue["FitSelectionMethod"] == "AdjustedRSquared",
-			SelectFirst[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["AdjustedRSquared"] >= OptionValue["MinAdjustedRSquared"] &] @*
+		Switch[OptionValue["FitSelectionMethod"],
+			"AdjustedRSquared",
+			SelectFirst[With[{fitFunction = LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]},
+				fitFunction["AdjustedRSquared"] >= OptionValue["MinAdjustedRSquared"] &&
+				fitFunction["ParameterTableEntries"][[2, 1]] < 0
+			] &] @*
 			SortBy[#[[1]] - #[[2]] &],
+			"ReducedChiSquared",
 			If[# == {}, Missing[], First @ #] & @*
-			SortBy[Total[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["StandardizedResiduals"]^2]/(#[[2]] - #[[1]] - 1) &]
+			SortBy[With[{fitFunction = LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]}, 
+				If[fitFunction["ParameterTableEntries"][[2, 1]] < 0, Total[fitFunction["StandardizedResiduals"]^2]/(#[[2]] - #[[1]] - 1), \[Infinity]]
+			] &],
+			_,
+			Message[ExponentialDecaySubset::invm, OptionValue["FitSelectionMethod"]]; Missing[] &
 		] @
 		Select[#[[2]] - #[[1]] > 1 &] @
 		Subsets[Range @ Length @ logFlux, {2}]
@@ -156,7 +172,7 @@ NormalizeLightCurve[lightCurve_] := NormalizeLightCurve[lightCurve, MaxFluxDate 
 SyntaxInformation[NormalizedExponentialDecayFit] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[NormalizedExponentialDecayFit] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95};
+Options[NormalizedExponentialDecayFit] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "FitSelectionMethod" -> "AdjustedRSquared"};
 
 
 NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
@@ -176,7 +192,7 @@ SyntaxInformation[NormalizedExponentialDecayPlot] = {"ArgumentsPattern" -> {{_},
 Options[NormalizedExponentialDecayPlot] = {
 	"MaxDurationAfterPeak" -> 30,
 	"MinAdjustedRSquared" -> .95,
-	"FitSelectionMethod" -> "NormalizedChiSquared",
+	"FitSelectionMethod" -> "AdjustedRSquared",
 	"ExcludedPlotStyle" -> Gray,
 	"FitPlotStyle" -> ColorData[97, 4],
 	"PlotMarkers" -> {Automatic, Medium},
@@ -209,7 +225,7 @@ NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 	
 	Show[
 		ErrorListPlot[{
-			{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ Complement[normalizedLightCurve, normalizedExponentialDecay],
+			{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ Complement[normalizedLightCurve, normalizedExponentialDecay] /. {} -> {Missing[]},
 			{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedExponentialDecay /. {} -> {Missing[]}
 			},
 			PlotStyle -> {OptionValue["ExcludedPlotStyle"], OptionValue["FitPlotStyle"]},
@@ -229,6 +245,40 @@ NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 
 (* ::Subsection:: *)
 (*SupernovaPlot*)
+
+
+SyntaxInformation[SupernovaPlot] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
+
+
+Options[SupernovaPlot] = {
+	"MaxDurationAfterPeak" -> 30,
+	"MinAdjustedRSquared" -> .95,
+	"FitSelectionMethod" -> "AdjustedRSquared",
+	"ExcludedPlotStyle" -> Gray,
+	"FitPlotStyle" -> ColorData[97, 4],
+	"PlotMarkers" -> {Automatic, Medium},
+	"ImageSize" -> 300,
+	"FrameLabel" -> {"Time, days", "Log10[flux, \!\(\*SuperscriptBox[\(sec\), \(-1\)]\)]"},
+	"PlotRange" -> All
+};
+
+
+SupernovaPlot[supernova_, OptionsPattern[]] := Module[
+	{},
+	Row @ Map[NormalizedExponentialDecayPlot[
+		#[[2]],
+		"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
+		"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
+		"FitSelectionMethod" -> OptionValue["FitSelectionMethod"],
+		"ExcludedPlotStyle" -> OptionValue["ExcludedPlotStyle"],
+		"FitPlotStyle" -> OptionValue["FitPlotStyle"],
+		"PlotMarkers" -> OptionValue["PlotMarkers"],
+		"ImageSize" -> OptionValue["ImageSize"],
+		"FrameLabel" -> OptionValue["FrameLabel"],
+		"PlotRange" -> OptionValue["PlotRange"],
+		"PlotLabel" -> StringJoin[supernova[["SN"]], "::", #[[1]]]
+	] &, Normal @ supernova["LightCurves"]]
+]
 
 
 End[];
