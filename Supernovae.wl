@@ -83,7 +83,7 @@ ListImport[fileName_String] /; FileExistsQ[fileName] := Module[
 
 
 (* ::Text:: *)
-(*Discussion! Negative fluxes are dropped. *)
+(*Discussion! Negative fluxes are dropped.*)
 
 
 $LightCurveSortedByTime[lightCurve_List] := Select[#["Flux"] > 0 &] @ SortBy[lightCurve, #["Date"]&];
@@ -110,12 +110,7 @@ MaxFluxDate[lightCurve_List] := Module[
 SyntaxInformation[ExponentialDecaySubset] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquired" -> .95};
-
-
-(* ::Text:: *)
-(*Discussion! How to find a correct range?*)
-(*How to check goodness of fit?*)
+Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "FitSelectionMethod" -> "NormalizedChiSquared"};
 
 
 ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
@@ -125,8 +120,12 @@ ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 	logFlux = {#[[1]], Log10 @ #[[2]]} & /@ lightCurveAfterPeak;
 	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
 	If[Head @ # === Missing, {}, lightCurveAfterPeak[[#[[1]] ;; #[[2]]]]] & @
-		SelectFirst[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["AdjustedRSquared"] >= OptionValue["MinAdjustedRSquired"] &] @
-		SortBy[#[[1]] - #[[2]] &] @
+		If[OptionValue["FitSelectionMethod"] == "AdjustedRSquared",
+			SelectFirst[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["AdjustedRSquared"] >= OptionValue["MinAdjustedRSquared"] &] @*
+			SortBy[#[[1]] - #[[2]] &],
+			If[# == {}, Missing[], First @ #] & @*
+			SortBy[Total[LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]["StandardizedResiduals"]^2]/(#[[2]] - #[[1]] - 1) &]
+		] @
 		Select[#[[2]] - #[[1]] > 1 &] @
 		Subsets[Range @ Length @ logFlux, {2}]
 ]
@@ -152,12 +151,12 @@ NormalizeLightCurve[lightCurve_] := NormalizeLightCurve[lightCurve, MaxFluxDate 
 SyntaxInformation[NormalizedExponentialDecayFit] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[NormalizedExponentialDecayFit] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquired" -> .95};
+Options[NormalizedExponentialDecayFit] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95};
 
 
 NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
 	{normalizedLightCurve},
-	normalizedLightCurve = NormalizeLightCurve[ExponentialDecaySubset[#, options], MaxFluxDate @ #] & @ lightCurve;
+	normalizedLightCurve = NormalizeLightCurve[ExponentialDecaySubset[$LightCurveSortedByTime @ #, options], MaxFluxDate @ #] & @ lightCurve;
 	If[Length @ normalizedLightCurve == 0, Missing["No good fit."], LinearModelFit[normalizedLightCurve[[All, {1, 2}]], t, t, Weights -> normalizedLightCurve[[All, 3]]]]
 ]
 
@@ -169,17 +168,21 @@ NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
 SyntaxInformation[NormalizedExponentialDecayPlot] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[NormalizedExponentialDecayPlot] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquired" -> .95};
+Options[NormalizedExponentialDecayPlot] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95};
 
 
 NormalizedExponentialDecayPlot[lightCurve_List, options___] := Module[
-	{maxFluxDate, normalizedLightCurve, normalizedExponentialDecay},
+	{maxFluxDate, normalizedLightCurve, normalizedExponentialDecay, fitFunction},
 	maxFluxDate = MaxFluxDate @ lightCurve;
 	normalizedLightCurve = NormalizeLightCurve[$LightCurveSortedByTime @ lightCurve, maxFluxDate];
-	normalizedExponentialDecay = NormalizeLightCurve[ExponentialDecaySubset @ lightCurve, maxFluxDate];
+	normalizedExponentialDecay = NormalizeLightCurve[ExponentialDecaySubset[lightCurve, options], maxFluxDate];
+	fitFunction = NormalizedExponentialDecayFit[lightCurve, options];
+	
 	Show[
-		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedLightCurve],
-		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedExponentialDecay, PlotStyle -> Red]
+		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ Complement[normalizedLightCurve, normalizedExponentialDecay]],
+		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedExponentialDecay, PlotStyle -> Red, PlotMarkers -> {"\[FilledSquare]", 15}],
+		Plot[fitFunction[t], {t, normalizedExponentialDecay[[1, 1]], normalizedExponentialDecay[[-1, 1]]}],
+		PlotRange -> All
 	]
 ]
 
