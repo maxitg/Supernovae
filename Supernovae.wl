@@ -16,7 +16,7 @@ BeginPackage["Supernovae`"];
 Needs["ErrorBarPlots`"];
 
 
-Unprotect[ListImport, MaxFluxDate, ExponentialDecaySubset, NormalizeLightCurve, NormalizedExponentialDecayFit, NormalizedExponentialDecayPlot];
+Unprotect[ListImport, MaxFluxDate, ExponentialDecaySubset, NormalizeLightCurve, NormalizedExponentialDecayFit, NormalizedExponentialDecayPlot, SupernovaPlot];
 
 
 ListImport::usage = StringJoin @ {
@@ -48,6 +48,11 @@ NormalizedExponentialDecayFit::usage = StringJoin @ {
 
 NormalizedExponentialDecayPlot::usage = StringJoin @ {
 	"NormalizedExponentialDecayPlot[\!\(\*StyleBox[\"lightCurve\", \"TI\"]\)] yields a log plot of lightCurve including fit function."
+};
+
+
+SupernovaPlot::usage = StringJoin @ {
+	"SupernovaPlot[\!\(\*StyleBox[\"Supernovae\", \"TI\"]\)] yields a log plot of Supernovae light curves for all filters including fit functions."
 };
 
 
@@ -222,6 +227,10 @@ NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 ]
 
 
+(* ::Subsection:: *)
+(*SupernovaPlot*)
+
+
 End[];
 
 
@@ -231,9 +240,10 @@ Attributes[ExponentialDecaySubset] = {ReadProtected};
 Attributes[NormalizeLightCurve] = {ReadProtected};
 Attributes[NormalizedExponentialDecayFit] = {ReadProtected};
 Attributes[NormalizedExponentialDecayPlot] = {ReadProtected};
+Attributes[SupernovaePlot] = {ReadProtected};
 
 
-Protect[ListImport, MaxFluxDate, ExponentialDecaySubset, NormalizeLightCurve, NormalizedExponentialDecayFit, NormalizedExponentialDecayPlot];
+Protect[ListImport, MaxFluxDate, ExponentialDecaySubset, NormalizeLightCurve, NormalizedExponentialDecayFit, NormalizedExponentialDecayPlot, SupernovaPlot];
 
 
 EndPackage[];
