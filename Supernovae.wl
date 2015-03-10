@@ -168,21 +168,56 @@ NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
 SyntaxInformation[NormalizedExponentialDecayPlot] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[NormalizedExponentialDecayPlot] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95};
+Options[NormalizedExponentialDecayPlot] = {
+	"MaxDurationAfterPeak" -> 30,
+	"MinAdjustedRSquared" -> .95,
+	"FitSelectionMethod" -> "NormalizedChiSquared",
+	"ExcludedPlotStyle" -> Gray,
+	"FitPlotStyle" -> ColorData[97, 4],
+	"PlotMarkers" -> {Automatic, Medium},
+	"ImageSize" -> 300,
+	"FrameLabel" -> {"Time, days", "Log10[flux, \!\(\*SuperscriptBox[\(sec\), \(-1\)]\)]"},
+	"PlotRange" -> All,
+	"PlotLabel" -> ""
+};
 
 
-NormalizedExponentialDecayPlot[lightCurve_List, options___] := Module[
+NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 	{maxFluxDate, normalizedLightCurve, normalizedExponentialDecay, fitFunction},
 	maxFluxDate = MaxFluxDate @ lightCurve;
 	normalizedLightCurve = NormalizeLightCurve[$LightCurveSortedByTime @ lightCurve, maxFluxDate];
-	normalizedExponentialDecay = NormalizeLightCurve[ExponentialDecaySubset[lightCurve, options], maxFluxDate];
-	fitFunction = NormalizedExponentialDecayFit[lightCurve, options];
+	normalizedExponentialDecay = NormalizeLightCurve[
+		ExponentialDecaySubset[
+			lightCurve,
+			"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
+			"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
+			"FitSelectionMethod" -> OptionValue["FitSelectionMethod"]
+		],
+		maxFluxDate
+	];
+	fitFunction = NormalizedExponentialDecayFit[
+		lightCurve,
+		"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
+		"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
+		"FitSelectionMethod" -> OptionValue["FitSelectionMethod"]
+	];
 	
 	Show[
-		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ Complement[normalizedLightCurve, normalizedExponentialDecay]],
-		ErrorListPlot[{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedExponentialDecay, PlotStyle -> Red, PlotMarkers -> {"\[FilledSquare]", 15}],
-		Plot[fitFunction[t], {t, normalizedExponentialDecay[[1, 1]], normalizedExponentialDecay[[-1, 1]]}],
-		PlotRange -> All
+		ErrorListPlot[{
+			{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ Complement[normalizedLightCurve, normalizedExponentialDecay],
+			{{#[[1]], #[[2]]}, ErrorBar @ #[[3]]} & /@ normalizedExponentialDecay /. {} -> {Missing[]}
+			},
+			PlotStyle -> {OptionValue["ExcludedPlotStyle"], OptionValue["FitPlotStyle"]},
+			PlotMarkers -> OptionValue["PlotMarkers"],
+			Method -> {"OptimizePlotMarkers" -> False}
+		],
+		If[Length @ normalizedExponentialDecay > 0, Plot[fitFunction[t], {t, normalizedExponentialDecay[[1, 1]], normalizedExponentialDecay[[-1, 1]]}, PlotStyle -> OptionValue["FitPlotStyle"]], {}],
+		ImageSize -> OptionValue["ImageSize"],
+		Axes -> False,
+		Frame -> True,
+		FrameLabel -> OptionValue["FrameLabel"],
+		PlotRange -> OptionValue["PlotRange"],
+		PlotLabel -> OptionValue["PlotLabel"]
 	]
 ]
 
