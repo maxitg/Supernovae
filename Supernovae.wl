@@ -72,13 +72,12 @@ SyntaxInformation[ListImport] = {"ArgumentsPattern" -> {_}};
 
 ListImport[fileName_String] /; FileExistsQ[fileName] := Module[
 	{contents, meta, description, data, dataAssociation},
-	contents = Select[Length @ # > 0 &] @ Import[fileName, "Table"];
-	meta = Select[StringQ @ #[[1]] && StringMatchQ[#[[1]], "\\@*"] &] @ contents;
-	description = StringTake[#, 2 ;; -2] & /@ Most @ Flatten @ Select[StringQ @ #[[1]] && StringMatchQ[#[[1]], "#*"] &] @ contents;
-	data = contents[[Position[contents, {"#end"}][[1, 1]] + 1 ;; ]];
-	
+	contents = Select[StringLength @ # > 0 &] @ Import[fileName, "Lines"];
+	meta = StringSplit[Select[StringMatchQ[#, "\\@*"] &] @ contents, Whitespace];
+	description = Most[StringSplit[#, "#" | ":" | Whitespace][[1]] & /@ Select[StringMatchQ[#, "#*"] &] @ contents];
+	data = Join[ToExpression @ StringReplace[#, {"e+" -> "*^", "e-" -> "*^-"}] & /@ #[[1 ;; 4]], #[[5 ;; 6]]] & /@
+		StringSplit[#, Whitespace] & @ contents[[Position[contents, string_String /; StringMatchQ[string, "#end"~~___]][[1, 1]] + 1 ;; ]];
 	dataAssociation = KeyDrop[#, "Filter"] & /@ GroupBy[(Association @ Thread[description -> #] & /@ data), #[["Filter"]] &];
-
 	Association @ Append[StringTake[#[[1]], 2 ;; ] -> Rest @ # & /@ meta, "LightCurves" -> dataAssociation]
 ]
 
