@@ -121,7 +121,7 @@ SyntaxInformation[ExponentialDecaySubset] = {"ArgumentsPattern" -> {{_}, Options
 Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "MinFitPoints" -> 3, "FitSelectionMethod" -> "AdjustedRSquared"};
 
 
-ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available methods are: AdjustedRSquared, ReducedChiSquared.";
+ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available methods are: AdjustedRSquared, ReducedChiSquared, AllPoints.";
 
 
 ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
@@ -143,6 +143,8 @@ ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 			SortBy[With[{fitFunction = LinearModelFit[logFlux[[#[[1]] ;; #[[2]]]], t, t, Weights -> weights[[#[[1]] ;; #[[2]]]]]}, 
 				If[fitFunction["ParameterTableEntries"][[2, 1]] < 0, Total[fitFunction["StandardizedResiduals"]^2]/(#[[2]] - #[[1]] - 1), \[Infinity]]
 			] &],
+			"AllPoints",
+			First @* SortBy[#[[1]] - #[[2]] &],
 			_,
 			Message[ExponentialDecaySubset::invm, OptionValue["FitSelectionMethod"]]; Missing[] &
 		] @
