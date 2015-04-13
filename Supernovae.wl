@@ -36,7 +36,7 @@ ExponentialDecaySubset::usage = StringJoin @ {
 
 NormalizeLightCurve::usage = StringJoin @ {
 	"NormalizeLightCurve[\!\(\*StyleBox[\"lightCurve\", \"TI\"]\)] yields a modification of lightCurve, in which fluxes are replaced with log10 of fluxes, ",
-	"and dates are normalized, so that the date of maximal flux is zero. \n",
+	"dates are sorted and normalized, so that the date of maximal flux is zero, and negative fluxes are removed. \n",
 	"NormalizeLightCurve[\!\(\*StyleBox[\"lightCurve\", \"TI\"], StyleBox[\"zeroDate\", \"TI\"]\)] normalizes the dates, so that zeroDate becomes zero."
 };
 
@@ -163,7 +163,7 @@ SyntaxInformation[NormalizeLightCurve] = {"ArgumentsPattern" -> {__}};
 NormalizeLightCurve[lightCurve_, zeroDate_] := {#[["Date"]] - zeroDate, Log10 @ #[["Flux"]], #[["Fluxerr"]]/(Log[10] #[["Flux"]])} & /@ lightCurve
 
 
-NormalizeLightCurve[lightCurve_] := NormalizeLightCurve[lightCurve, MaxFluxDate @ lightCurve]
+NormalizeLightCurve[lightCurve_] := NormalizeLightCurve[$LightCurveSortedByTime @ lightCurve, MaxFluxDate @ lightCurve]
 
 
 (* ::Subsection:: *)
@@ -178,7 +178,7 @@ Options[NormalizedExponentialDecayFit] = {"StartTimeAfterPeak" -> 0, "MaxDuratio
 
 NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
 	{normalizedLightCurve},
-	normalizedLightCurve = NormalizeLightCurve[ExponentialDecaySubset[$LightCurveSortedByTime @ #, options], MaxFluxDate @ #] & @ lightCurve;
+	normalizedLightCurve = NormalizeLightCurve[ExponentialDecaySubset[#, options], MaxFluxDate @ #] & @ lightCurve;
 	If[Length @ normalizedLightCurve == 0, Missing["No good fit."], LinearModelFit[normalizedLightCurve[[All, {1, 2}]], t, t, Weights -> normalizedLightCurve[[All, 3]]]]
 ]
 
@@ -209,7 +209,7 @@ Options[NormalizedExponentialDecayPlot] = {
 NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 	{maxFluxDate, normalizedLightCurve, normalizedExponentialDecay, fitFunction},
 	maxFluxDate = MaxFluxDate @ lightCurve;
-	normalizedLightCurve = NormalizeLightCurve[$LightCurveSortedByTime @ lightCurve, maxFluxDate];
+	normalizedLightCurve = NormalizeLightCurve[lightCurve, maxFluxDate];
 	normalizedExponentialDecay = NormalizeLightCurve[
 		ExponentialDecaySubset[
 			lightCurve,
