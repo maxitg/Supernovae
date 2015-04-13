@@ -118,7 +118,7 @@ MaxFluxDate[lightCurve_List] := Module[
 SyntaxInformation[ExponentialDecaySubset] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[ExponentialDecaySubset] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "MinFitPoints" -> 3, "FitSelectionMethod" -> "AdjustedRSquared"};
+Options[ExponentialDecaySubset] = {"StartTimeAfterPeak" -> 0, "MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "MinFitPoints" -> 3, "FitSelectionMethod" -> "AdjustedRSquared"};
 
 
 ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available methods are: AdjustedRSquared, ReducedChiSquared, AllPoints.";
@@ -127,7 +127,7 @@ ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available method
 ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 	{maxFluxDate, lightCurveAfterPeak, logFlux, weights},
 	maxFluxDate = MaxFluxDate @ lightCurve;
-	lightCurveAfterPeak = Select[maxFluxDate < #["Date"] < maxFluxDate + OptionValue["MaxDurationAfterPeak"] &] @ $LightCurveSortedByTime @ lightCurve;
+	lightCurveAfterPeak = Select[maxFluxDate + OptionValue["StartTimeAfterPeak"] < #["Date"] < maxFluxDate + OptionValue["MaxDurationAfterPeak"] &] @ $LightCurveSortedByTime @ lightCurve;
 	logFlux = {#[[1]], Log10 @ #[[2]]} & /@ lightCurveAfterPeak;
 	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
 	If[Head @ # === Missing, {}, lightCurveAfterPeak[[#[[1]] ;; #[[2]]]]] & @
@@ -173,7 +173,7 @@ NormalizeLightCurve[lightCurve_] := NormalizeLightCurve[lightCurve, MaxFluxDate 
 SyntaxInformation[NormalizedExponentialDecayFit] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]}};
 
 
-Options[NormalizedExponentialDecayFit] = {"MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "MinFitPoints" -> 3, "FitSelectionMethod" -> "AdjustedRSquared"};
+Options[NormalizedExponentialDecayFit] = {"StartTimeAfterPeak" -> 0, "MaxDurationAfterPeak" -> 30, "MinAdjustedRSquared" -> .95, "MinFitPoints" -> 3, "FitSelectionMethod" -> "AdjustedRSquared"};
 
 
 NormalizedExponentialDecayFit[lightCurve_List, options___] := Module[
@@ -191,6 +191,7 @@ SyntaxInformation[NormalizedExponentialDecayPlot] = {"ArgumentsPattern" -> {{_},
 
 
 Options[NormalizedExponentialDecayPlot] = {
+	"StartTimeAfterPeak" -> 0,
 	"MaxDurationAfterPeak" -> 30,
 	"MinAdjustedRSquared" -> .95,
 	"MinFitPoints" -> 3,
@@ -212,6 +213,7 @@ NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 	normalizedExponentialDecay = NormalizeLightCurve[
 		ExponentialDecaySubset[
 			lightCurve,
+			"StartTimeAfterPeak" -> OptionValue["StartTimeAfterPeak"],
 			"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
 			"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
 			"MinFitPoints" -> OptionValue["MinFitPoints"],
@@ -221,6 +223,7 @@ NormalizedExponentialDecayPlot[lightCurve_List, OptionsPattern[]] := Module[
 	];
 	fitFunction = NormalizedExponentialDecayFit[
 		lightCurve,
+		"StartTimeAfterPeak" -> OptionValue["StartTimeAfterPeak"],
 		"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
 		"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
 		"MinFitPoints" -> OptionValue["MinFitPoints"],
@@ -255,6 +258,7 @@ SyntaxInformation[SupernovaPlot] = {"ArgumentsPattern" -> {{_}, OptionsPattern[]
 
 
 Options[SupernovaPlot] = {
+	"StartTimeAfterPeak" -> 0,
 	"MaxDurationAfterPeak" -> 30,
 	"MinAdjustedRSquared" -> .95,
 	"MinFitPoints" -> 3,
@@ -272,6 +276,7 @@ SupernovaPlot[supernova_, OptionsPattern[]] := Module[
 	{},
 	Row @ Map[NormalizedExponentialDecayPlot[
 		#[[2]],
+		"StartTimeAfterPeak" -> OptionValue["StartTimeAfterPeak"],
 		"MaxDurationAfterPeak" -> OptionValue["MaxDurationAfterPeak"],
 		"MinAdjustedRSquared" -> OptionValue["MinAdjustedRSquared"],
 		"MinFitPoints" -> OptionValue["MinFitPoints"],
