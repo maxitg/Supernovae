@@ -144,7 +144,7 @@ ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 				If[fitFunction["ParameterTableEntries"][[2, 1]] < 0, Total[fitFunction["StandardizedResiduals"]^2]/(#[[2]] - #[[1]] - 1), \[Infinity]]
 			] &],
 			"AllPoints",
-			First @* SortBy[#[[1]] - #[[2]] &],
+			If[# == {}, Missing[], First @ SortBy[#[[1]] - #[[2]] &] @ #] &,
 			_,
 			Message[ExponentialDecaySubset::invm, OptionValue["FitSelectionMethod"]]; Missing[] &
 		] @
