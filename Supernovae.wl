@@ -127,7 +127,7 @@ ExponentialDecaySubset::invm = "Invalid FitSelectionMethod `1`. Available method
 ExponentialDecaySubset[lightCurve_List, OptionsPattern[]] := Module[
 	{maxFluxDate, lightCurveAfterPeak, logFlux, weights},
 	maxFluxDate = MaxFluxDate @ lightCurve;
-	lightCurveAfterPeak = Select[maxFluxDate + OptionValue["StartTimeAfterPeak"] < #["Date"] < maxFluxDate + OptionValue["MaxDurationAfterPeak"] &] @ $LightCurveSortedByTime @ lightCurve;
+	lightCurveAfterPeak =If[maxFluxDate === lightCurve[[1, "Date"]], {}, Select[maxFluxDate + OptionValue["StartTimeAfterPeak"] < #["Date"] < maxFluxDate + OptionValue["MaxDurationAfterPeak"] &] @ $LightCurveSortedByTime @ lightCurve];
 	logFlux = {#[[1]], Log10 @ #[[2]]} & /@ lightCurveAfterPeak;
 	weights = #[[3]]/(Log[10] #[[2]]) & /@ lightCurveAfterPeak;
 	If[Head @ # === Missing, {}, lightCurveAfterPeak[[#[[1]] ;; #[[2]]]]] & @
